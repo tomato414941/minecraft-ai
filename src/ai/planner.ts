@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { SYSTEM_PROMPT, buildUserPrompt } from "./prompts.js";
-import { logger } from "../utils/logger.js";
+import { SYSTEM_PROMPT, buildUserPrompt } from "./prompts";
+import { logger } from "../utils/logger";
 
 export interface Plan {
   thought: string;

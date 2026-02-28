@@ -1,5 +1,5 @@
 import type { Bot } from "mineflayer";
-import type { ActionParams, SkillResult } from "./index.js";
+import type { ActionParams, SkillResult } from "./index";
 
 const FOOD_ITEMS = [
   "cooked_beef",

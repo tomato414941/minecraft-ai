@@ -1,8 +1,8 @@
 import mineflayer from "mineflayer";
-import pathfinder from "mineflayer-pathfinder";
-import collectBlock from "mineflayer-collectblock";
-import pvp from "mineflayer-pvp";
-import { logger } from "./utils/logger.js";
+import { pathfinder } from "mineflayer-pathfinder";
+import { plugin as collectBlock } from "mineflayer-collectblock";
+import { plugin as pvpPlugin } from "mineflayer-pvp";
+import { logger } from "./utils/logger";
 
 export interface BotConfig {
   host: string;
@@ -20,9 +20,9 @@ export function createBot(config: BotConfig): mineflayer.Bot {
     hideErrors: false,
   });
 
-  bot.loadPlugin(pathfinder.pathfinder);
-  bot.loadPlugin(collectBlock as any);
-  bot.loadPlugin(pvp.plugin);
+  bot.loadPlugin(pathfinder);
+  bot.loadPlugin(collectBlock);
+  bot.loadPlugin(pvpPlugin);
 
   bot.once("spawn", () => {
     logger.info("Bot spawned in the world");

@@ -1,5 +1,5 @@
 import type { Bot } from "mineflayer";
-import type { ActionParams, SkillResult } from "./index.js";
+import type { ActionParams, SkillResult } from "./index";
 import { Vec3 } from "vec3";
 
 export async function shelter(bot: Bot, params: ActionParams): Promise<SkillResult> {

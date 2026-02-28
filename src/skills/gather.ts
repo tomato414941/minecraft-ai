@@ -1,5 +1,5 @@
 import type { Bot } from "mineflayer";
-import type { ActionParams, SkillResult } from "./index.js";
+import type { ActionParams, SkillResult } from "./index";
 import { goals } from "mineflayer-pathfinder";
 
 export async function gather(bot: Bot, params: ActionParams): Promise<SkillResult> {

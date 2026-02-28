@@ -1,8 +1,8 @@
-import { createBot } from "./bot.js";
-import { Planner } from "./ai/planner.js";
-import { observeState, stateToString, type GameState } from "./state/observer.js";
-import { executeSkill } from "./skills/index.js";
-import { logger } from "./utils/logger.js";
+import { createBot } from "./bot";
+import { Planner } from "./ai/planner";
+import { observeState, stateToString, type GameState } from "./state/observer";
+import { executeSkill } from "./skills/index";
+import { logger } from "./utils/logger";
 
 const MC_HOST = process.env.MC_HOST ?? "localhost";
 const MC_PORT = parseInt(process.env.MC_PORT ?? "25565", 10);

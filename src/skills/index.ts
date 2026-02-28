@@ -1,11 +1,11 @@
 import type { Bot } from "mineflayer";
-import { gather } from "./gather.js";
-import { craft } from "./craft.js";
-import { eat } from "./eat.js";
-import { combat } from "./combat.js";
-import { shelter } from "./shelter.js";
-import { explore } from "./explore.js";
-import { logger } from "../utils/logger.js";
+import { gather } from "./gather";
+import { craft } from "./craft";
+import { eat } from "./eat";
+import { combat } from "./combat";
+import { shelter } from "./shelter";
+import { explore } from "./explore";
+import { logger } from "../utils/logger";
 
 export interface SkillResult {
   success: boolean;
