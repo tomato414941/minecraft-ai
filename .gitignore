@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env
+mc-data/
+AGENTS.override.md
+CLAUDE.local.md

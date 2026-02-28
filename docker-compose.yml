@@ -1,0 +1,37 @@
+services:
+  minecraft:
+    image: itzg/minecraft-server:java21
+    environment:
+      EULA: "TRUE"
+      VERSION: "1.20.4"
+      ONLINE_MODE: "FALSE"
+      GAMEMODE: survival
+      DIFFICULTY: normal
+      SPAWN_PROTECTION: "0"
+      MAX_PLAYERS: "5"
+      VIEW_DISTANCE: "10"
+      MEMORY: "2G"
+    ports:
+      - "25565:25565"
+    volumes:
+      - mc-data:/data
+    healthcheck:
+      test: mc-health
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  bot:
+    build: .
+    depends_on:
+      minecraft:
+        condition: service_healthy
+    environment:
+      MC_HOST: minecraft
+      MC_PORT: "25565"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    restart: on-failure
+
+volumes:
+  mc-data:
