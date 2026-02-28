@@ -22,6 +22,24 @@ services:
       retries: 12
       start_period: 60s
 
+  rl-service:
+    build: ./rl-service
+    volumes:
+      - rl-data:/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    restart: on-failure
+
   bot:
     build: .
     depends_on:
@@ -31,7 +49,11 @@ services:
       MC_HOST: minecraft
       MC_PORT: "25565"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      RL_SERVICE_URL: http://rl-service:8000
+      RL_ENABLED: "true"
+      RL_CONFIDENCE_THRESHOLD: "0.6"
     restart: on-failure
 
 volumes:
   mc-data:
+  rl-data:
