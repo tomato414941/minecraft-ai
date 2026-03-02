@@ -7,6 +7,8 @@ import { RLClient } from "./rl/client";
 import { loadRLConfig } from "./rl/config";
 import { computeReward } from "./rl/reward";
 import { logger } from "./utils/logger";
+import { startApiServer, dequeueCommand, hasCommand, updateState } from "./server";
+import { eventBus } from "./events";
 
 const MC_HOST = process.env.MC_HOST ?? "localhost";
 const MC_PORT = parseInt(process.env.MC_PORT ?? "25565", 10);
@@ -29,6 +31,8 @@ let lastState: GameState | null = null;
 let running = false;
 let stepCount = 0;
 
+const API_PORT = parseInt(process.env.API_PORT ?? "3001", 10);
+
 bot.once("spawn", async () => {
   logger.info("=== Minecraft AI Bot (Phase 2: LLM + RL) ===");
   logger.info(`Connected to ${MC_HOST}:${MC_PORT}`);
@@ -38,10 +42,28 @@ bot.once("spawn", async () => {
     await rlClient.start();
   }
 
+  startApiServer(API_PORT);
+  eventBus.publish("spawn", { position: bot.entity.position });
+
   setTimeout(() => {
     running = true;
     gameLoop();
   }, 3000);
+});
+
+bot.on("death", () => {
+  eventBus.publish("death", {});
+});
+
+let lastHealth = 20;
+bot.on("health", () => {
+  if (bot.health <= 6 && lastHealth > 6) {
+    eventBus.publish("low_health", { health: bot.health });
+  }
+  if (bot.food <= 6) {
+    eventBus.publish("low_food", { food: bot.food });
+  }
+  lastHealth = bot.health;
 });
 
 async function gameLoop() {
@@ -51,47 +73,69 @@ async function gameLoop() {
       const state = observeState(bot);
       const prevState = lastState;
       lastState = state;
+      updateState(state);
 
       logger.info(stateToString(state));
 
-      // 2. Dispatch: decide RL or LLM
-      const dispatch = dispatcher.decide(state);
-      logger.info(`[Dispatcher] ${dispatch.source} (${dispatch.reason})`);
-
-      // 3. Get action plan
+      // 2. Check external command queue first
       let plan: Plan;
       let usedRL = false;
+      let usedExternal = false;
 
-      if (dispatch.source === "rl") {
-        try {
-          const rlResult = await rlClient.predict(state);
-          logger.info(`[RL] action=${rlResult.action} confidence=${rlResult.confidence.toFixed(2)} q=${rlResult.qValue.toFixed(2)}`);
+      const extCmd = dequeueCommand();
+      if (extCmd) {
+        logger.info(`[External] command: ${extCmd.action}`);
+        plan = {
+          thought: `External command`,
+          action: extCmd.action,
+          params: extCmd.params,
+        };
+        usedExternal = true;
+      } else {
+        // 3. Dispatch: decide RL or LLM
+        const dispatch = dispatcher.decide(state);
+        logger.info(`[Dispatcher] ${dispatch.source} (${dispatch.reason})`);
 
-          if (rlResult.confidence >= rlConfig.confidenceThreshold) {
-            plan = {
-              thought: `RL(${rlResult.confidence.toFixed(2)})`,
-              action: rlResult.action,
-              params: rlResult.params,
-            };
-            usedRL = true;
-          } else {
-            logger.info(`[RL] confidence too low, falling back to LLM`);
+        if (dispatch.source === "rl") {
+          try {
+            const rlResult = await rlClient.predict(state);
+            logger.info(`[RL] action=${rlResult.action} confidence=${rlResult.confidence.toFixed(2)} q=${rlResult.qValue.toFixed(2)}`);
+
+            if (rlResult.confidence >= rlConfig.confidenceThreshold) {
+              plan = {
+                thought: `RL(${rlResult.confidence.toFixed(2)})`,
+                action: rlResult.action,
+                params: rlResult.params,
+              };
+              usedRL = true;
+            } else {
+              logger.info(`[RL] confidence too low, falling back to LLM`);
+              plan = await planner.decide(stateToString(state), lastResult);
+            }
+          } catch {
+            logger.warn("[RL] prediction failed, falling back to LLM");
             plan = await planner.decide(stateToString(state), lastResult);
           }
-        } catch {
-          logger.warn("[RL] prediction failed, falling back to LLM");
+        } else {
           plan = await planner.decide(stateToString(state), lastResult);
         }
-      } else {
-        plan = await planner.decide(stateToString(state), lastResult);
       }
 
       // 4. Execute skill
       const result = await executeSkill(bot, plan.action, plan.params);
       lastResult = `${plan.action}: ${result.message}`;
 
+      // Publish action result event
+      eventBus.publish("action_complete", {
+        action: plan.action,
+        params: plan.params,
+        success: result.success,
+        message: result.message,
+        source: usedExternal ? "external" : usedRL ? "rl" : "llm",
+      });
+
       // 5. Collect experience for RL training
-      if (rlConfig.enabled && (rlConfig.collectInLLMMode || usedRL)) {
+      if (rlConfig.enabled && !usedExternal && (rlConfig.collectInLLMMode || usedRL)) {
         const nextState = observeState(bot);
         const reward = computeReward(prevState, nextState, result);
         await rlClient.sendExperience(state, plan.action, reward, nextState, false);
@@ -105,10 +149,10 @@ async function gameLoop() {
         }
       }
 
-      // 6. Wait (shorter for RL reactive mode)
-      const interval = usedRL
+      // 6. Wait (shorter for RL/external reactive mode)
+      const interval = usedExternal || usedRL
         ? rlConfig.reactiveLoopInterval
-        : rlConfig.strategicLoopInterval;
+        : hasCommand() ? 500 : rlConfig.strategicLoopInterval;
       await sleep(interval);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
