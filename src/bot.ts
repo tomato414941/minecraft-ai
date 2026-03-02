@@ -2,7 +2,10 @@ import mineflayer from "mineflayer";
 import { pathfinder } from "mineflayer-pathfinder";
 import { plugin as collectBlock } from "mineflayer-collectblock";
 import { plugin as pvpPlugin } from "mineflayer-pvp";
+import { mineflayer as mineflayerViewer } from "prismarine-viewer";
 import { logger } from "./utils/logger";
+
+const VIEWER_PORT = parseInt(process.env.VIEWER_PORT ?? "3000", 10);
 
 export interface BotConfig {
   host: string;
@@ -28,6 +31,13 @@ export function createBot(config: BotConfig): mineflayer.Bot {
     logger.info("Bot spawned in the world");
     const pos = bot.entity.position;
     logger.info(`Position: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`);
+
+    try {
+      mineflayerViewer(bot, { port: VIEWER_PORT, firstPerson: true });
+      logger.info(`Viewer started on http://0.0.0.0:${VIEWER_PORT}`);
+    } catch (err) {
+      logger.warn(`Failed to start viewer: ${err}`);
+    }
   });
 
   bot.on("health", () => {
