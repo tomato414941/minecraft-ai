@@ -10,11 +10,11 @@ import { logger } from "./utils/logger";
 
 const MC_HOST = process.env.MC_HOST ?? "localhost";
 const MC_PORT = parseInt(process.env.MC_PORT ?? "25565", 10);
-const API_KEY = process.env.ANTHROPIC_API_KEY;
+const API_KEY = process.env.LLM_API_KEY;
 const BOT_USERNAME = "ClaudeBot";
 
 if (!API_KEY) {
-  logger.error("ANTHROPIC_API_KEY is required");
+  logger.error("LLM_API_KEY is required");
   process.exit(1);
 }
 

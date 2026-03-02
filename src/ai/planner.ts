@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompts";
 import { logger } from "../utils/logger";
 
@@ -8,13 +7,16 @@ export interface Plan {
   params: Record<string, unknown>;
 }
 
+const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "https://open.bigmodel.cn/api/paas/v4";
+const LLM_MODEL = process.env.LLM_MODEL ?? "glm-4-flash";
+
 export class Planner {
-  private client: Anthropic;
+  private apiKey: string;
   private conversationHistory: { role: "user" | "assistant"; content: string }[] = [];
   private maxHistory = 10;
 
   constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey });
+    this.apiKey = apiKey;
   }
 
   async decide(stateString: string, lastResult: string | null): Promise<Plan> {
@@ -28,19 +30,30 @@ export class Planner {
     }
 
     try {
-      const response = await this.client.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 256,
-        system: SYSTEM_PROMPT,
-        messages: this.conversationHistory,
+      const res = await fetch(`${LLM_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: LLM_MODEL,
+          max_tokens: 256,
+          enable_thinking: false,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...this.conversationHistory,
+          ],
+        }),
       });
 
-      const text = response.content[0];
-      if (text.type !== "text") {
-        throw new Error("Unexpected response type");
+      if (!res.ok) {
+        throw new Error(`${res.status} ${await res.text()}`);
       }
 
-      const raw = text.text.trim();
+      const data = await res.json();
+      const msg = data.choices[0].message;
+      const raw: string = (msg.content || msg.reasoning_content || "").trim();
       logger.ai(`Response: ${raw}`);
 
       this.conversationHistory.push({ role: "assistant", content: raw });
